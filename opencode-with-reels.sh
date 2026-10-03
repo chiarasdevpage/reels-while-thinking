@@ -3,23 +3,16 @@ set -euo pipefail
 
 fail() { printf 'Reels launcher: %s\n' "$*" >&2; exit 1; }
 
+# WSL can inherit an npm Windows shim named "opencode". Require an ELF
+# executable so that PATH discovery never launches that shim.
+opencode_bin=$(command -v opencode || true)
+[[ -f $opencode_bin && -x $opencode_bin ]] ||
+  fail 'OpenCode was not found. Install OpenCode inside WSL/Linux and ensure opencode is on your Linux PATH, then retry.'
+[[ $(LC_ALL=C head -c 4 -- "$opencode_bin") == $'\177ELF' ]] ||
+  fail 'opencode on PATH must be a native Linux ELF binary. Install OpenCode inside WSL/Linux and put it before Windows/npm wrappers on PATH.'
+
 command -v wslpath >/dev/null && command -v powershell.exe >/dev/null ||
   fail 'Run this launcher inside WSL with Windows interop enabled.'
-
-# WSL can inherit an npm Windows shim named "opencode". Prefer the native install
-# and require an ELF executable so that we never fall through to that shim.
-opencode_bin=${OPENCODE_BIN:-}
-if [[ -z $opencode_bin ]]; then
-  if [[ -x $HOME/.opencode/bin/opencode ]]; then
-    opencode_bin=$HOME/.opencode/bin/opencode
-  else
-    opencode_bin=$(type -P opencode || true)
-  fi
-fi
-[[ -f $opencode_bin && -x $opencode_bin ]] ||
-  fail 'Linux OpenCode was not found. Set OPENCODE_BIN to its absolute binary path.'
-[[ $(LC_ALL=C head -c 4 -- "$opencode_bin") == $'\177ELF' ]] ||
-  fail 'OPENCODE_BIN/opencode must be a native Linux ELF binary, not a Windows/npm wrapper.'
 
 for arg in "$@"; do
   case $arg in

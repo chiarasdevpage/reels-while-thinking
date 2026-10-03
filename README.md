@@ -26,28 +26,34 @@ For an existing headless server, set its port in `config.json`, start the watche
 
 PowerShell may block `npm.ps1` and `opencode.ps1` on this VM. These instructions use `.cmd` launchers and do not change your execution policy.
 
-### WSL (native Linux ARM64 OpenCode)
+### Windows ARM64 / WSL
 
-Keep this utility on the Windows drive, and run its Bash launcher from your project inside WSL:
+On Windows ARM64, run native Linux ARM64 OpenCode inside WSL; the Reels watcher still runs on Windows. Install [OpenCode](https://opencode.ai/docs/) **inside WSL/Linux** first, and open a new WSL terminal so `command -v opencode` finds its Linux binary. Keep this utility on the Windows drive (for example, clone this repository to `C:\Users\super\projects\reels-while-thinking`). Windows x64 users can continue using the `.cmd` launcher above unchanged.
 
-```bash
-cd ~/your-project
-/mnt/c/Users/super/projects/reels-while-thinking/opencode-with-reels.sh
-```
-
-Normal OpenCode arguments can follow the launcher path. Your current directory and argument boundaries are preserved, including projects in the Linux filesystem and paths with spaces. The launcher prefers `~/.opencode/bin/opencode`, then searches `PATH`; it requires a native Linux ELF binary to avoid accidentally using the inherited Windows npm shim. To select another Linux installation:
+Run this one-time setup **in WSL**, adjusting the checkout path to match yours:
 
 ```bash
-OPENCODE_BIN=/absolute/path/to/linux/opencode /mnt/c/Users/super/projects/reels-while-thinking/opencode-with-reels.sh
+bash /mnt/c/Users/super/projects/reels-while-thinking/install-wsl.sh
 ```
 
-The launcher uses `powershell.exe` to read the port through the existing `src/port.js` and open the existing Windows `start.cmd` watcher, then replaces itself with Linux OpenCode in your terminal. It does not need Linux Node.js. Windows Node.js and Edge/Chrome must be installed, and WSL Windows interop must be enabled. PowerShell's execution-policy override applies only to this helper process.
+Setup installs an executable wrapper at `~/.local/bin/brainrot`. If that directory is missing from PATH, it adds it to your Bash or Zsh startup file. Open a new WSL terminal after setup, or run the `export PATH` command printed by setup to use the current terminal. Other shells need `~/.local/bin` added to their PATH manually. No alias is required. Re-run setup if you move the checkout.
+
+Then, from any project:
+
+```bash
+cd /path/to/project
+brainrot
+```
+
+Normal OpenCode arguments can follow `brainrot`. Your current directory becomes OpenCode's active project; paths with spaces and argument boundaries are preserved. The launcher automatically finds OpenCode with `command -v opencode` and requires a native Linux ELF binary, preventing accidental use of an inherited Windows npm shim. If it is missing or resolves to a Windows wrapper, install OpenCode inside WSL/Linux and ensure its Linux installation comes first on PATH.
+
+The wrapper calls the existing `opencode-with-reels.sh`, which uses `powershell.exe` to read the port through `src/port.js` and open the Windows `start.cmd` watcher, then replaces itself with Linux OpenCode in your terminal. It does not need Linux Node.js. Windows Node.js and Edge/Chrome must be installed, and WSL Windows interop must be enabled. PowerShell's execution-policy override applies only to this helper process.
 
 The watcher and OpenCode share `config.json`'s port (4096 by default). Change it there; the WSL launcher rejects `--port` and `--hostname` overrides. Use one OpenCode server and one watcher at a time. This uses Windows-to-WSL localhost connectivity (WSL 1, or WSL 2 with localhost forwarding enabled). If the watcher keeps reconnecting, check that Windows can reach `http://127.0.0.1:4096/global/health`. Keep `opencode.directory` empty to watch all projects, or set it to the **Linux** project path reported by OpenCode, such as `/home/super/your-project`.
 
 Optional `OPENCODE_SERVER_PASSWORD` and `OPENCODE_SERVER_USERNAME` exported in WSL are forwarded to the watcher. Use **O/S/Q** in the Windows watcher console as above. Exiting OpenCode leaves the watcher running; quit it with **Q** before launching again.
 
-The `.sh` file is executable and uses LF line endings. If a fresh Windows checkout loses its executable permission, run `chmod +x /mnt/c/Users/super/projects/reels-while-thinking/opencode-with-reels.sh` in WSL.
+The setup and wrapper invoke the launcher through Bash, so a Windows checkout does not need its executable permission restored. The `.sh` files use LF line endings.
 
 ## Controls and stopping
 
@@ -103,7 +109,7 @@ Auto-scroll sends **ArrowDown to the viewer page** only while work is active, a 
 
 `logs/reels.log` records task starts/finishes, source events, session IDs, project directories, connections, window actions, and scrolling. It rotates at about 2 MB and keeps one previous file. It does not log prompts, completions, cookies, or model responses. Instagram login cookies stay in the dedicated browser profiles, which should be treated like normal browser account data.
 
-To uninstall: quit the watcher, close its viewers, and delete this project directory. Deleting `runtime/profile-N` while the watcher and its windows are stopped resets that popout's Instagram login. Normal browser profiles and OpenCode configuration are untouched.
+To uninstall: quit the watcher, close its viewers, and delete this project directory. If you installed the WSL command, also remove `~/.local/bin/brainrot`; the marked Reels PATH block in `~/.bashrc` or `~/.zshrc` can optionally be removed. Deleting `runtime/profile-N` while the watcher and its windows are stopped resets that popout's Instagram login. Normal browser profiles and OpenCode configuration are untouched.
 
 ## Verification / development
 
@@ -116,7 +122,9 @@ node test/opencode-smoke.js
 node test/instagram-smoke.js
 ```
 
-From WSL, run `python3 /mnt/c/Users/super/projects/reels-while-thinking/test/wsl-launcher-test.py` for launcher regression checks (Python 3 required for tests only). These substitute the Windows bridge to check argument/port handling, native-binary guards, working directory, authentication forwarding, and failures without opening windows. The live WSL check also verified Linux OpenCode 1.18.34's TUI, Windows loopback connectivity, and a real Ollama task triggering a Reels popout from a Linux project directory containing spaces.
+From WSL, run `python3 /mnt/c/Users/super/projects/reels-while-thinking/test/wsl-launcher-test.py` for launcher regression checks (Python 3 required for tests only). These substitute the Windows bridge to check PATH discovery, missing/native-binary errors, wrapper installation, repeated setup, argument/port handling, working directory, authentication forwarding, and failures without opening windows. The live WSL check also verified Linux OpenCode 1.18.34's TUI, Windows loopback connectivity, and a real Ollama task triggering a Reels popout from a Linux project directory containing spaces.
+
+The installed `brainrot` command was also checked from an unrelated Linux directory with spaces: OpenCode's `/path` API and process working directory both matched that project, and the Windows watcher connected successfully.
 
 The unit/integration suite exercises duplicate and overlapping task events, delayed close cancellation, late browser startup, scroll gates, configuration validation, fragmented SSE, and real HTTP reconnect recovery. The browser smoke test opens and closes three windows displaying local HTML and verifies dimensions, placement, reuse, keyboard delivery, and focused-input protection. The optional OpenCode smoke test uses a temporary server on port 4196 and the installed Ollama `qwen3:4b`, creates and removes its own test session, and checks the full generation-to-popout-to-idle path. Its model configuration applies only to that test process. It writes evidence to `runtime/opencode-smoke/result.json` on success.
 
