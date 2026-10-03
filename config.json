@@ -1,0 +1,21 @@
+{
+  "opencode": {
+    "url": "http://127.0.0.1:4096",
+    "directory": "",
+    "reconnectMs": 2000,
+    "reconcileMs": 5000
+  },
+  "browserPath": "",
+  "popouts": 1,
+  "width": 420,
+  "height": 760,
+  "left": 40,
+  "top": 40,
+  "gap": 16,
+  "targetUrl": "https://www.instagram.com/reels/",
+  "autoScroll": false,
+  "autoScrollIntervalMs": 15000,
+  "autoClose": false,
+  "autoCloseDelayMs": 3000,
+  "controlPort": 4097
+}

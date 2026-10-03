@@ -1,0 +1,13 @@
+{
+  "name": "reels-while-thinking",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Local OpenCode task watcher with controlled Edge Reels popouts",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test test/*.test.js",
+    "test:browser": "node test/browser-smoke.js"
+  }
+}
