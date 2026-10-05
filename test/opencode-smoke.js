@@ -56,6 +56,7 @@ try {
       return false;
     }
   }, 30000);
+  controller.enabled = true;
   running = detector.run();
   await until(() => controller.connected);
   const session = await request('/session', 'POST', { title: 'Reels utility local integration test', permission: [{ permission: '*', pattern: '*', action: 'deny' }] });
@@ -79,7 +80,7 @@ try {
   fs.writeFileSync(path.join(work, 'result.json'), JSON.stringify({ passed: true, at: new Date().toISOString(), events }, null, 2));
 } finally {
   detector.stop(); await running;
-  await controller.stop();
+  await controller.shutdown();
   if (sessionID) {
     await request(`/session/${sessionID}/abort`, 'POST').catch(() => {});
     await request(`/session/${sessionID}`, 'DELETE').catch(() => {});

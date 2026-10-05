@@ -3,6 +3,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout as delay } from 'node:timers/promises';
 import { CDP } from './cdp.js';
+import { platforms, scrollGuard, advanceKeys } from './platforms.js';
 
 export function findBrowser(configured) {
   if (configured) {
@@ -59,6 +60,13 @@ export class Viewer {
     }
     const { browser, page, targetId } = connection;
     try {
+      if (!child && c.platform) {
+        const { result } = await page.send('Runtime.evaluate', { expression: 'location.href', returnByValue: true });
+        const current = new URL(result.value);
+        const adapter = platforms[c.platform];
+        if (current.origin !== new URL(adapter.url).origin || !new RegExp(adapter.routes).test(current.pathname))
+          await page.send('Page.navigate', { url: adapter.url });
+      }
       const { windowId } = await browser.send('Browser.getWindowForTarget', { targetId });
       await browser.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal' } });
       await browser.send('Browser.setWindowBounds', { windowId, bounds: {
@@ -86,23 +94,12 @@ export class Viewer {
       if (!allowed()) return;
       if (!window?.page.alive) continue;
       try {
-        // DOM checks avoid typing into a login field or navigating a login/challenge dialog.
-        const { result } = await window.page.send('Runtime.evaluate', { expression: `(() => {
-          const active = document.activeElement;
-          if (active && (['INPUT','TEXTAREA','SELECT'].includes(active.tagName) || active.isContentEditable)) return false;
-          if (document.querySelector('[role="dialog"]')) return false;
-          const target = new URL(${JSON.stringify(this.config.targetUrl)});
-          if (location.origin !== target.origin || !location.pathname.startsWith(target.pathname)) return false;
-          return Array.from(document.querySelectorAll('video')).some(v => {
-            const r = v.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.bottom > 0 && r.top < innerHeight;
-          });
-        })()`, returnByValue: true });
-        if (!result?.value) { this.log('scroll.skipped', { window: index + 1, reason: 'No visible reel, a dialog, or an active input' }); continue; }
+        const { result } = await window.page.send('Runtime.evaluate', { expression: scrollGuard(this.config.platform, this.config.targetUrl), returnByValue: true });
+        if (!result?.value) { this.log('scroll.skipped', { window: index + 1, reason: 'No eligible visible video, a dialog, or an active input' }); continue; }
         if (!allowed()) return;
-        await window.page.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40, nativeVirtualKeyCode: 40 });
-        await window.page.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowDown', code: 'ArrowDown', windowsVirtualKeyCode: 40, nativeVirtualKeyCode: 40 });
+        for (const key of advanceKeys) await window.page.send('Input.dispatchKeyEvent', key);
         this.log('scroll.advance', { window: index + 1 });
-      } catch (error) { this.log('scroll.error', { window: index + 1, message: error.message }); }
+      } catch (error) { this.log('scroll.error', { window: index + 1, message: error.message }); throw error; }
     }
   }
   async closeOne(window) {

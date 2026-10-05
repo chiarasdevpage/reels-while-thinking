@@ -1,13 +1,26 @@
 {
   "name": "reels-while-thinking",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
-  "description": "Local OpenCode task watcher with controlled Edge Reels popouts",
-  "engines": { "node": ">=22" },
+  "description": "Local OpenCode task watcher with a React control dashboard",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node src/main.js",
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build",
     "test": "node --test test/*.test.js",
-    "test:browser": "node test/browser-smoke.js"
+    "test:browser": "node test/browser-smoke.js",
+    "test:dashboard": "node test/dashboard-smoke.js",
+    "test:platforms": "node test/platform-smoke.js"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "vite": "^7.3.0"
   }
 }

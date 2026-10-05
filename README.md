@@ -1,131 +1,151 @@
 # Reels While Thinking
 
-A small Windows utility that opens dedicated Instagram Reels windows when OpenCode starts working. Uses the installed Edge (or Chrome) and Node.js; **no npm packages, extensions, proxy, or global configuration changes**.
+A localhost React dashboard that opens dedicated Instagram Reels, YouTube Shorts, or TikTok viewers while OpenCode works. Uses Node.js 22+ and installed Edge/Chrome. No extensions, account automation, or global configuration changes.
 
-## Start
+## Setup and startup
 
-1. Open a terminal in the project where you normally use OpenCode.
-2. Run the launcher:
+In this repository, run:
 
-   ```powershell
-   & 'C:\Users\super\projects\reels-while-thinking\opencode-with-reels.cmd'
-   ```
+```powershell
+npm.cmd install
+npm.cmd run build
+```
 
-   It opens the watcher console and launches OpenCode in your current project with its local API on port 4096. Normal OpenCode arguments can follow the launcher path. Use one OpenCode server on this port at a time.
+From the project where you use OpenCode, run:
 
-3. In the **watcher console**, press **O** to open the viewer and sign into Instagram yourself. Each popout has its own persistent login profile, separate from your normal browser. With multiple popouts, sign into each once.
-4. Submit a task in OpenCode. The viewer opens automatically, or reuses existing popouts. Default: one 420 × 760 window, no scrolling, left open when the task finishes.
+```powershell
+& 'C:\Users\super\projects\reels-while-thinking\opencode-with-reels.cmd'
+```
 
-You can also double-click `start.cmd`, then launch OpenCode separately:
+The launcher starts OpenCode in your current project with its local API on the configured port (4096 by default), and opens the dashboard at **http://127.0.0.1:4097**. Normal OpenCode arguments may follow the launcher path. Use one watcher and one OpenCode server on those ports at a time.
+
+Select a platform, use **Open / Login** to sign in manually, then press **Start**. Each dedicated viewer uses its own persistent login profile, separate from your normal browser. With multiple popouts, sign into each once.
+
+You can also double-click `start.cmd` or run `npm.cmd start`, then start OpenCode separately:
 
 ```powershell
 opencode.cmd --hostname 127.0.0.1 --port 4096
 ```
 
-For an existing headless server, set its port in `config.json`, start the watcher, and use `opencode.cmd attach http://127.0.0.1:4096`. A plain OpenCode instance on a random port is not watched automatically. The watcher waits and reconnects if OpenCode has not started yet.
+For a headless server, set its port in `config.json` and use `opencode.cmd attach http://127.0.0.1:4096`. A plain OpenCode instance on a random port is not detected. The watcher waits and reconnects if OpenCode has not started.
 
-PowerShell may block `npm.ps1` and `opencode.ps1` on this VM. These instructions use `.cmd` launchers and do not change your execution policy.
+Use the printed dashboard URL if the browser does not open automatically. Rebuild after frontend changes. The `.cmd` commands work without changing PowerShell execution policy.
 
-### Windows ARM64 / WSL
+## Controls
 
-On Windows ARM64, run native Linux ARM64 OpenCode inside WSL; the Reels watcher still runs on Windows. Install [OpenCode](https://opencode.ai/docs/) **inside WSL/Linux** first, and open a new WSL terminal so `command -v opencode` finds its Linux binary. Keep this utility on the Windows drive (for example, clone this repository to `C:\Users\super\projects\reels-while-thinking`). Windows x64 users can continue using the `.cmd` launcher above unchanged.
+| Control | Action |
+| --- | --- |
+| Start | Open/reuse viewers and enable automation; scrolling waits for OpenCode activity |
+| Stop | Disable automation until Start is pressed again |
+| Platform | Instagram Reels, YouTube Shorts, or TikTok; stop automation before switching |
+| When idle or stopped | **Pause** leaves viewers open; **Close** closes them |
+| Auto-scroll | Toggle advancing independently from automatic window management |
+| Open / Login | Open viewers for manual viewing/login without enabling automation |
+| Quit watcher | Close this utility's viewers and shut down the backend |
 
-Run this one-time setup **in WSL**, adjusting the checkout path to match yours:
+The watcher starts **disabled** each launch; auto-scroll starts **on**. The shared Pause/Close setting applies to idle transitions and manual Stop. Idle pauses resume automatically with the next OpenCode task. Manual Stop never resumes automatically.
+
+Idle Close uses `autoCloseDelayMs` (3 seconds by default); manual Stop closes immediately. New work cancels pending idle closure. Idle setting changes apply immediately. Changing platforms closes existing viewers; Start or Open/Login opens the new destination.
+
+Start while idle opens the page for Pause; Close applies the idle delay. Open/Login cancels idle closure so you can sign in manually. Closing a viewer manually keeps it closed for that task; the next task, Start, or Open/Login restores it.
+
+**Typing** means the whole OpenCode task, including tools, retries, and permission waits. **Running** means scrolling is eligible; dialogs, focused inputs, or unavailable videos can still prevent advancement. Disconnection pauses scrolling without assuming the task finished.
+
+Closing the dashboard tab does not quit the watcher. Use **Quit watcher** for clean shutdown. Optional terminal shortcuts remain: **O** opens viewers, **S** toggles scrolling, and **Q/Ctrl+C** quits. OpenCode and Ollama are never stopped. The loopback HTTP port also prevents duplicate watcher instances.
+
+## Windows ARM64 / WSL
+
+On Windows ARM64, install native Linux ARM64 OpenCode **inside WSL**. The watcher still runs on Windows and requires Windows Node.js and Edge/Chrome. Keep this utility on a Windows drive and perform the npm setup/build above on Windows.
+
+Run this one-time setup in WSL, adjusting the checkout path:
 
 ```bash
 bash /mnt/c/Users/super/projects/reels-while-thinking/install-wsl.sh
 ```
 
-Setup installs an executable wrapper at `~/.local/bin/brainrot`. If that directory is missing from PATH, it adds it to your Bash or Zsh startup file. Open a new WSL terminal after setup, or run the `export PATH` command printed by setup to use the current terminal. Other shells need `~/.local/bin` added to their PATH manually. No alias is required. Re-run setup if you move the checkout.
-
-Then, from any project:
+It installs `~/.local/bin/brainrot` and adds that directory to Bash/Zsh PATH if needed. Open a new terminal, then run from any project:
 
 ```bash
 cd /path/to/project
 brainrot
 ```
 
-Normal OpenCode arguments can follow `brainrot`. Your current directory becomes OpenCode's active project; paths with spaces and argument boundaries are preserved. The launcher automatically finds OpenCode with `command -v opencode` and requires a native Linux ELF binary, preventing accidental use of an inherited Windows npm shim. If it is missing or resolves to a Windows wrapper, install OpenCode inside WSL/Linux and ensure its Linux installation comes first on PATH.
+Normal OpenCode arguments may follow `brainrot`. The launcher preserves the current project and argument boundaries. It discovers OpenCode through `command -v opencode` and requires a native Linux ELF binary, rejecting inherited Windows wrappers. Re-run setup if you move this checkout.
 
-The wrapper calls the existing `opencode-with-reels.sh`, which uses `powershell.exe` to read the port through `src/port.js` and open the Windows `start.cmd` watcher, then replaces itself with Linux OpenCode in your terminal. It does not need Linux Node.js. Windows Node.js and Edge/Chrome must be installed, and WSL Windows interop must be enabled. PowerShell's execution-policy override applies only to this helper process.
+The wrapper invokes `opencode-with-reels.sh`, which reads the shared port through Windows Node.js and starts the Windows watcher with its console hidden. Control it through the dashboard. Linux Node.js is not required; WSL Windows interop and Windows-to-WSL localhost connectivity are required. WSL 2 needs localhost forwarding enabled.
 
-The watcher and OpenCode share `config.json`'s port (4096 by default). Change it there; the WSL launcher rejects `--port` and `--hostname` overrides. Use one OpenCode server and one watcher at a time. This uses Windows-to-WSL localhost connectivity (WSL 1, or WSL 2 with localhost forwarding enabled). If the watcher keeps reconnecting, check that Windows can reach `http://127.0.0.1:4096/global/health`. Keep `opencode.directory` empty to watch all projects, or set it to the **Linux** project path reported by OpenCode, such as `/home/super/your-project`.
+Change the OpenCode port in `config.json`; the WSL launcher rejects `--port` and `--hostname` overrides. If the watcher reconnects continuously, check Windows can reach `http://127.0.0.1:4096/global/health`. Leave `opencode.directory` empty to watch all projects, or use the **Linux** path reported by OpenCode.
 
-Optional `OPENCODE_SERVER_PASSWORD` and `OPENCODE_SERVER_USERNAME` exported in WSL are forwarded to the watcher. Use **O/S/Q** in the Windows watcher console as above. Exiting OpenCode leaves the watcher running; quit it with **Q** before launching again.
+Exported `OPENCODE_SERVER_PASSWORD` and optional `OPENCODE_SERVER_USERNAME` are forwarded to the watcher. Exiting OpenCode leaves the watcher running; use **Quit watcher** before launching again. The PowerShell execution-policy override is local to the helper process.
 
-The setup and wrapper invoke the launcher through Bash, so a Windows checkout does not need its executable permission restored. The `.sh` files use LF line endings.
+## Settings and local data
 
-## Controls and stopping
+Platform and idle behavior save atomically in **`runtime/settings.json`**. Missing or corrupt settings fall back to Instagram and Pause; invalid fields fall back independently. Write failures appear in the dashboard. Auto-scroll and automation enabled state are session-only.
 
-Focus the watcher console and press:
-
-| Key | Action |
-| --- | --- |
-| O | Open/reuse popouts for login or manual viewing |
-| S | Toggle auto-scroll immediately, for this run |
-| Q or Ctrl+C | Stop watching and close only this utility's popouts |
-
-Closing an individual viewer manually keeps it closed for the rest of that task. The next task, or **O**, restores missing windows. Quitting OpenCode disconnects the watcher and stops scrolling; press **Q** in the watcher to quit it too. Use **Q/Ctrl+C** for clean shutdown; force-closing its console can leave dedicated browser windows open, which you can close manually or recover on the next run.
-
-No startup service or scheduled task is installed. OpenCode and Ollama are never stopped by the watcher. A local port lock prevents two watcher instances from opening duplicate windows.
-
-## Settings
-
-Edit **`config.json`**, then restart the watcher. Values are validated before it starts.
+Advanced settings stay in **`config.json`** and require a restart:
 
 | Setting | Meaning |
 | --- | --- |
-| `popouts` | 1–3 simultaneous windows, shared across active tasks |
-| `width`, `height` | Outer browser-window size in desktop pixels |
-| `left`, `top` | First window's screen position; negative values support monitors left/above the primary monitor |
-| `gap` | Horizontal space between windows; subsequent windows go to the right |
-| `targetUrl` | Defaults to `https://www.instagram.com/reels/` |
-| `autoScroll` | `true` enables advancing while a task is active; default `false` |
-| `autoScrollIntervalMs` | Milliseconds between ArrowDown presses; default 15000 |
-| `autoClose` | Close viewers after all tasks finish; default `false` |
-| `autoCloseDelayMs` | Delay before closing; default 3000; new work cancels a pending close |
-| `browserPath` | Empty finds Edge/Chrome automatically; otherwise the full `.exe` path |
-| `opencode.url` | Local OpenCode HTTP API origin; default `http://127.0.0.1:4096` |
-| `opencode.directory` | Empty watches every project on that server; a full project path restricts events to that project |
-| `opencode.reconnectMs` | Retry delay after disconnect; default 2000 |
-| `opencode.reconcileMs` | Status reconciliation interval; default 5000 |
-| `controlPort` | Local singleton lock only; default 4097; no remote-control API |
+| `popouts` | 1?3 viewers, shared across active tasks |
+| `width`, `height` | Outer viewer dimensions in desktop pixels |
+| `left`, `top`, `gap` | Window layout; negative coordinates support other monitors |
+| `autoScrollIntervalMs` | Time between ArrowDown presses; existing value is preserved |
+| `autoCloseDelayMs` | Idle close delay; new work cancels it |
+| `browserPath` | Empty discovers Edge/Chrome; otherwise the full executable path |
+| `opencode.url` | Local API origin; default http://127.0.0.1:4096 |
+| `opencode.directory` | Empty watches all projects on the server |
+| `opencode.reconnectMs` | Reconnect delay, default 2000 ms |
+| `opencode.reconcileMs` | Status reconciliation interval, default 5000 ms |
+| `controlPort` | Loopback dashboard/API and singleton listener, default 4097 |
 
-For three viewers, make sure the positions fit your VM desktop; for example, width 360 and gap 12 need about 1100 pixels. Windows may adjust offscreen coordinates or size for display scaling and minimum sizes.
+Legacy `targetUrl`, `autoClose`, and `autoScroll` remain readable for standalone test compatibility. Normal app behavior uses the platform registry, persisted Pause/Close setting, and session-only auto-scroll toggle.
 
-If your OpenCode server uses `OPENCODE_SERVER_PASSWORD`, launch the watcher with the same environment variable (and `OPENCODE_SERVER_USERNAME` if customized). Credentials are sent only to the configured loopback server and are not written to the log. Do not put passwords in the URL.
+The detector consumes OpenCode `/global/event` busy/retry/idle events and reconciles `/session/status`. Live events take precedence over older snapshots. Existing overlapping-session behavior is preserved. Direct Ollama requests are not watched. After restart, active tasks in other projects may be discovered on their next session event; start the watcher before submitting work.
 
-## Detection and window behavior
+Each viewer uses Chromium's local DevTools protocol and `runtime/profile-N`. Only dedicated viewers receive keyboard input; no desktop-wide keys or coordinate clicks are used. Recovered viewers are checked against the selected platform. Scrolling requires a visible video, a supported route, no visible dialog, and no focused input. Login, consent, an initial play/click, or site changes can block scrolling; no challenge is bypassed.
 
-Verified against **OpenCode 1.18.33** on this VM. The watcher consumes **`/global/event`** and its `session.status` events (`busy`, `retry`, `idle`). A task starts when a session first becomes busy; retries, streamed tokens, model tool steps, and overlapping sessions do not create extra groups of windows. A task is the whole OpenCode session turn, including tool execution and permission waits, rather than each individual inference request. Cloud-provider tasks on the same watched server also trigger it; direct requests to Ollama outside OpenCode do not.
+Logs rotate under `logs/reels.log`. They do not include prompts, completions, cookies, or model responses. Login data remains in the dedicated profiles. Treat these like browser account data. Minimized windows and browser throttling can affect playback.
 
-`/session/status` reconciles startup and reconnect state and repairs missed finish events. Live events take precedence over an older status request. Auto-scroll pauses on connection loss. Existing popouts remain until a confirmed idle state (if auto-close is enabled) or you quit. Known project directories are reconciled; after a watcher restart, an already-running task in another project is discovered on its next session event. Start the watcher before submitting tasks to catch every start.
+No service or scheduled task is installed. To uninstall, quit the watcher and delete the checkout. Optionally remove the WSL wrapper and marked PATH block. Delete `runtime/profile-N` only with the watcher/viewers stopped to reset a login; normal browser profiles are untouched.
 
-Each viewer is an app-style Edge window with its own data directory under `runtime/profile-N`. Control uses Chromium's local DevTools protocol on an automatically chosen loopback port. The utility never sends desktop-wide keyboard input or uses screen coordinates for clicks. It reuses viewers across tasks, so leaving windows open will not accumulate more windows.
-
-Auto-scroll sends **ArrowDown to the viewer page** only while work is active, a video is visible, the page is at the configured URL, no dialog is open, and no input has focus. Instagram may require login, cookie consent, manually selecting/playing a Reel, or an initial click before its keyboard shortcuts work. Login challenges and Instagram layout/shortcut changes cannot be bypassed by this utility. If a Reel does not advance, try ArrowDown inside the viewer and check `scroll.skipped` in the log. **S** disables automatic input immediately. Minimized windows and browser background throttling may affect playback.
-
-## Logs and local data
-
-`logs/reels.log` records task starts/finishes, source events, session IDs, project directories, connections, window actions, and scrolling. It rotates at about 2 MB and keeps one previous file. It does not log prompts, completions, cookies, or model responses. Instagram login cookies stay in the dedicated browser profiles, which should be treated like normal browser account data.
-
-To uninstall: quit the watcher, close its viewers, and delete this project directory. If you installed the WSL command, also remove `~/.local/bin/brainrot`; the marked Reels PATH block in `~/.bashrc` or `~/.zshrc` can optionally be removed. Deleting `runtime/profile-N` while the watcher and its windows are stopped resets that popout's Instagram login. Normal browser profiles and OpenCode configuration are untouched.
-
-## Verification / development
-
-Requires Windows with Edge/Chrome and Node.js 22 or later (VM inspected with Node 26.2.0). No `npm install` is needed.
+## Development and checks
 
 ```powershell
 npm.cmd test
+npm.cmd run build
 npm.cmd run test:browser
-node test/opencode-smoke.js
-node test/instagram-smoke.js
+npm.cmd run test:dashboard
+npm.cmd run test:platforms
 ```
 
-From WSL, run `python3 /mnt/c/Users/super/projects/reels-while-thinking/test/wsl-launcher-test.py` for launcher regression checks (Python 3 required for tests only). These substitute the Windows bridge to check PATH discovery, missing/native-binary errors, wrapper installation, repeated setup, argument/port handling, working directory, authentication forwarding, and failures without opening windows. The live WSL check also verified Linux OpenCode 1.18.34's TUI, Windows loopback connectivity, and a real Ollama task triggering a Reels popout from a Linux project directory containing spaces.
+Normal startup serves bundled React assets from the backend. For frontend development, run the backend plus `npm.cmd run dev`; Vite proxies API requests to the configured control port.
 
-The installed `brainrot` command was also checked from an unrelated Linux directory with spaces: OpenCode's `/path` API and process working directory both matched that project, and the Windows watcher connected successfully.
+The unit/API suite covers lifecycle races, detector reconciliation, SSE, settings persistence, errors, and scroll gates. Browser tests use isolated profiles. The dashboard smoke test uses a real browser with a fake automation viewer and checks all controls; its screenshot is `runtime/dashboard-smoke/dashboard.png`.
 
-The unit/integration suite exercises duplicate and overlapping task events, delayed close cancellation, late browser startup, scroll gates, configuration validation, fragmented SSE, and real HTTP reconnect recovery. The browser smoke test opens and closes three windows displaying local HTML and verifies dimensions, placement, reuse, keyboard delivery, and focused-input protection. The optional OpenCode smoke test uses a temporary server on port 4196 and the installed Ollama `qwen3:4b`, creates and removes its own test session, and checks the full generation-to-popout-to-idle path. Its model configuration applies only to that test process. It writes evidence to `runtime/opencode-smoke/result.json` on success.
+The platform smoke test uses separate unauthenticated profiles and records actual advancement or blockers with screenshots under `runtime/platform-smoke/`. Fixture success alone does not prove live-site advancement. Sign in yourself in normal viewer profiles for personalized feeds.
 
-The Instagram smoke test opens a separate test profile, loads a public Reel, and checks that auto-scroll changes the Reel URL. It saves a screenshot and a result under `runtime/instagram-smoke`. Availability depends on Instagram allowing logged-out viewing; your personalized feed requires your login. The other browser tests use local pages without using your account.
+Optional existing checks: `node test/opencode-smoke.js` uses an isolated OpenCode/Ollama session; `node test/instagram-smoke.js` checks public Reels. In WSL, run `python3 /mnt/c/Users/super/projects/reels-while-thinking/test/wsl-launcher-test.py` for wrapper regression coverage.
+
+## API and architecture
+
+The React UI polls `GET /api/status` once per second. JSON commands:
+
+- `POST /api/start`, `/api/stop`, `/api/open`, `/api/shutdown`
+- `PATCH /api/settings`: `platform` and/or `idleBehavior`
+- `PUT /api/auto-scroll`: `{"enabled":true}`
+
+Use the displayed 127.0.0.1 origin. Mutations reject cross-origin browser requests and non-JSON payloads. Status includes connection/activity, enabled state, scrolling eligibility, settings, auto-scroll, pending operations, and the latest error.
+
+The detector only reports activity and connection. The controller owns lifecycle, serialized browser operations, status, and settings updates. Platform URLs and guards live in `src/platforms.js`; the existing CDP viewer owns browser control. Codex, Claude Code, new detection heuristics, and account automation remain outside this phase.
+
+## Validation status ? 2026-10-05
+
+- Production build: passed.
+- Node unit/API regression suite: 26 passed.
+- WSL launcher suite: 11 passed.
+- Real-browser dashboard smoke test: passed all controls, reload, and connection-state checks.
+- Instagram live check: video advancement observed in the latest run.
+- YouTube Shorts and TikTok live checks: browser disconnected; advancement remains unverified.
+- The local three-viewer keyboard smoke test received no key events in this environment. The original committed viewer and test reproduced the same failure in an isolated baseline run. No desktop-input workaround or simulated success was introduced.
+
+Live-platform acceptance is therefore still incomplete. Evidence is saved in `runtime/platform-smoke/result.json` and the dashboard screenshot in `runtime/dashboard-smoke/dashboard.png`. Re-run the browser/platform checks in a normal desktop session after manual login or consent as needed.

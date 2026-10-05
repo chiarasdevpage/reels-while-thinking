@@ -1,2 +1,5 @@
 runtime/
 logs/
+
+node_modules/
+dist/

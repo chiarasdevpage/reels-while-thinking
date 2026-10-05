@@ -9,8 +9,8 @@ try {
     $port = & node (Join-Path $PSScriptRoot 'port.js')
     if ($LASTEXITCODE -ne 0) { throw 'Could not read the shared port from config.json.' }
     if ("$port" -notmatch '^\d+$') { throw 'Invalid shared port.' }
-    # This console is interactive: O/S/Q control the existing Windows watcher.
-    Start-Process -FilePath $env:ComSpec -WorkingDirectory $reelsRoot -ArgumentList '/d /c start.cmd'
+    # The watcher opens its localhost dashboard; keep the helper console hidden.
+    Start-Process -WindowStyle Hidden -FilePath $env:ComSpec -WorkingDirectory $reelsRoot -ArgumentList '/d /c start.cmd'
     Write-Output $port
 } catch {
     [Console]::Error.WriteLine($_.Exception.Message)
