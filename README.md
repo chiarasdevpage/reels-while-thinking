@@ -1,6 +1,6 @@
 # Reels While Thinking
 
-A localhost React dashboard that opens dedicated Instagram Reels, YouTube Shorts, or TikTok viewers while OpenCode works. Uses Node.js 22+ and installed Edge/Chrome. No extensions, account automation, or global configuration changes.
+A localhost React dashboard that opens dedicated Instagram Reels, YouTube Shorts, TikTok, or looping Subway Surfers gameplay viewers while OpenCode works. Uses Node.js 22+ and installed Edge/Chrome. No extensions, account automation, or global configuration changes.
 
 ## Setup and startup
 
@@ -37,7 +37,7 @@ Use the printed dashboard URL if the browser does not open automatically. Rebuil
 | --- | --- |
 | Start | Open/reuse viewers and enable automation; scrolling waits for OpenCode activity |
 | Stop | Disable automation until Start is pressed again |
-| Platform | Instagram Reels, YouTube Shorts, or TikTok; stop automation before switching |
+| Platform | Instagram Reels, YouTube Shorts, TikTok, or Subway Surfers; stop automation before switching |
 | When idle or stopped | **Pause** leaves viewers open; **Close** closes them |
 | Auto-scroll | Toggle advancing independently from automatic window management |
 | Open / Login | Open viewers for manual viewing/login without enabling automation |
@@ -52,6 +52,49 @@ Start while idle opens the page for Pause; Close applies the idle delay. Open/Lo
 **Typing** means the whole OpenCode task, including tools, retries, and permission waits. **Running** means scrolling is eligible; dialogs, focused inputs, or unavailable videos can still prevent advancement. Disconnection pauses scrolling without assuming the task finished.
 
 Closing the dashboard tab does not quit the watcher. Use **Quit watcher** for clean shutdown. Optional terminal shortcuts remain: **O** opens viewers, **S** toggles scrolling, and **Q/Ctrl+C** quits. OpenCode and Ollama are never stopped. The loopback HTTP port also prevents duplicate watcher instances.
+
+## Subway Surfers gameplay
+
+Select **Subway Surfers**, then use **Open player** to check the clip or **Start**
+to enable playback while OpenCode works. The clip loops, starts muted, and fills
+the viewer while preserving its aspect ratio. The Auto-scroll toggle is hidden
+for this mode; its previous value is kept when you switch back to a social feed.
+
+Place your gameplay MP4 in `runtime/media/subway-surfers.mp4` on the machine running
+the watcher, creating `runtime/media` if needed. H.264 video with `yuv420p` pixel
+format is recommended; audio is optional. The file is ignored by Git, is streamed
+locally with byte-range support, and is not copied into the frontend build. No
+video or browser account is downloaded automatically, and cloud development does
+not need access to files on your personal computer.
+
+The selected footage for this feature is
+[this Subway Surfers clip](https://www.youtube.com/watch?v=eRXE8Aebp7s).
+A YouTube watch URL is not an MP4 file; supply a playable MP4 copy of the selected
+footage at the path above. The clip is not bundled. The player reports a missing
+clip until footage is supplied.
+
+The player uses `object-fit: cover` to avoid adding black bars and may crop the
+edges to fill your chosen window size. Bars already encoded in the source video
+need trimming before import. With FFmpeg installed, inspect a representative
+section using `ffmpeg -i input.mp4 -t 20 -vf cropdetect -an -f null -`, verify the
+suggested crop against several parts of the clip, then convert with that measured
+`crop=w:h:x:y` filter, `-c:v libx264 -pix_fmt yuv420p -an -movflags +faststart`.
+Write the result to a new file first, then place it at the path above with the
+watcher stopped. Do not replace gameplay with the generated test pattern.
+
+In gameplay mode, **Pause** actually pauses the video and preserves its position.
+Idle **Close** pauses immediately, then uses `autoCloseDelayMs`; new work cancels
+the pending closure. Manual Stop with Close closes immediately. Reopening a closed
+viewer starts the clip again from the beginning. Disconnection pauses playback
+until OpenCode reconnects. Manual Stop requires Start before any task can resume
+playback. Open player opens paused when automation is disabled and does not enable
+it. A manually closed viewer stays closed for the current task.
+
+Loading and media errors appear in the player and dashboard. After supplying or
+replacing the clip, use **Reload player** or Stop/Close and Open player to retry.
+Run `npm run build` to build both the dashboard and `gameplay.html`; the backend
+and Vite both serve the player and its `/api/media/subway-surfers` stream. Desktop
+viewers use the backend's configured `controlPort`, including nondefault ports.
 
 ## Windows ARM64 / WSL
 
@@ -115,6 +158,7 @@ npm.cmd test
 npm.cmd run build
 npm.cmd run test:browser
 npm.cmd run test:dashboard
+npm.cmd run test:gameplay
 npm.cmd run test:platforms
 ```
 
@@ -123,6 +167,15 @@ Normal startup serves bundled React assets from the backend. For frontend develo
 The unit/API suite covers lifecycle races, detector reconciliation, SSE, settings persistence, errors, and scroll gates. Browser tests use isolated profiles. The dashboard smoke test uses a real browser with a fake automation viewer and checks all controls; its screenshot is `runtime/dashboard-smoke/dashboard.png`.
 
 The platform smoke test uses separate unauthenticated profiles and records actual advancement or blockers with screenshots under `runtime/platform-smoke/`. Fixture success alone does not prove live-site advancement. Sign in yourself in normal viewer profiles for personalized feeds.
+
+`npm run test:gameplay` uses an isolated media directory and the tiny generated
+`test/fixtures/gameplay.mp4` (not Subway Surfers footage). It exercises real video
+decoding and looping in two browsers, idle/Stop/disconnect pause and resume,
+missing/invalid media recovery, manual closure, delayed Close, and Vite's player,
+range streaming, and control proxy. It needs the production build and a configured
+Chromium browser, but no download, FFmpeg installation, or production gameplay
+file. Evidence is saved under `runtime/gameplay-smoke/`. Verify the supplied
+gameplay clip separately after importing it.
 
 Optional existing checks: `node test/opencode-smoke.js` uses an isolated OpenCode/Ollama session; `node test/instagram-smoke.js` checks public Reels. In WSL, run `python3 /mnt/c/Users/super/projects/reels-while-thinking/test/wsl-launcher-test.py` for wrapper regression coverage.
 
@@ -133,12 +186,27 @@ The React UI polls `GET /api/status` once per second. JSON commands:
 - `POST /api/start`, `/api/stop`, `/api/open`, `/api/shutdown`
 - `PATCH /api/settings`: `platform` and/or `idleBehavior`
 - `PUT /api/auto-scroll`: `{"enabled":true}`
+- `GET` / `HEAD /api/media/subway-surfers`: the local gameplay MP4; GET supports a single byte range
+
+Status includes `playbackEligible` and, for gameplay, a `playback` object with
+`state` (`closed`, `loading`, `paused`, `playing`, or `error`) and `error`.
+`scrollingEligible` remains false for gameplay; `automation` reflects observed
+playback as well as task eligibility. For feeds, `playback` is null.
 
 Use the displayed 127.0.0.1 origin. Mutations reject cross-origin browser requests and non-JSON payloads. Status includes connection/activity, enabled state, scrolling eligibility, settings, auto-scroll, pending operations, and the latest error.
 
 The detector only reports activity and connection. The controller owns lifecycle, serialized browser operations, status, and settings updates. Platform URLs and guards live in `src/platforms.js`; the existing CDP viewer owns browser control. Codex, Claude Code, new detection heuristics, and account automation remain outside this phase.
 
-## Validation status ? 2026-10-05
+## Gameplay validation — 2026-10-24
+
+- Unit/API tests: 38 passed.
+- Production build: dashboard and gameplay entries passed.
+- Headless Chromium: dashboard, three-viewer scrolling, and two-viewer gameplay
+  smoke tests passed, including Vite media streaming and control requests.
+- Gameplay checks used the generated fixture. The selected YouTube clip, its
+  encoded borders, and native Windows/WSL gameplay remain unverified.
+
+## Earlier validation status — 2026-10-05
 
 - Production build: passed.
 - Node unit/API regression suite: 26 passed.

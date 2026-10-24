@@ -1,11 +1,18 @@
 export const platforms = Object.freeze({
-  instagram: { label: 'Instagram Reels', url: 'https://www.instagram.com/reels/', routes: '^/(reels|reel)(/|$)' },
-  youtube: { label: 'YouTube Shorts', url: 'https://www.youtube.com/shorts/', routes: '^/shorts(/|$)' },
-  tiktok: { label: 'TikTok', url: 'https://www.tiktok.com/foryou', routes: '^/(foryou/?$|following/?$|@[^/]+/video/)' },
+  instagram: { label: 'Instagram Reels', kind: 'feed', supportsAutoScroll: true, url: 'https://www.instagram.com/reels/', routes: '^/(reels|reel)(/|$)' },
+  youtube: { label: 'YouTube Shorts', kind: 'feed', supportsAutoScroll: true, url: 'https://www.youtube.com/shorts/', routes: '^/shorts(/|$)' },
+  tiktok: { label: 'TikTok', kind: 'feed', supportsAutoScroll: true, url: 'https://www.tiktok.com/foryou', routes: '^/(foryou/?$|following/?$|@[^/]+/video/)' },
+  subwaySurfers: { label: 'Subway Surfers', kind: 'looping-video', supportsAutoScroll: false, routes: '^/gameplay\\.html$' },
 });
+
+export const isGameplay = platform => platforms[platform]?.kind === 'looping-video';
+export function resolveTarget(platform, config) {
+  return isGameplay(platform) ? `http://127.0.0.1:${config.controlPort}/gameplay.html` : platforms[platform]?.url || config.targetUrl;
+}
 
 export function scrollGuard(platform, targetUrl) {
   const adapter = platforms[platform];
+  if (isGameplay(platform)) return 'false';
   return `(() => {
     const active = document.activeElement;
     if (active && (['INPUT','TEXTAREA','SELECT'].includes(active.tagName) || active.isContentEditable)) return false;

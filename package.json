@@ -14,6 +14,7 @@
     "test": "node --test test/*.test.js",
     "test:browser": "node test/browser-smoke.js",
     "test:dashboard": "node test/dashboard-smoke.js",
+    "test:gameplay": "node test/gameplay-smoke.js",
     "test:platforms": "node test/platform-smoke.js"
   },
   "dependencies": {

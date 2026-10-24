@@ -1,6 +1,7 @@
 import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { serveGameplay } from './media.js';
 
 const mime = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml' };
 export function createControlServer({ controller, root, shutdown }) {
@@ -13,6 +14,8 @@ export function createControlServer({ controller, root, shutdown }) {
       const origin = 'http://127.0.0.1:' + req.socket.localPort;
       if (req.headers.host !== new URL(origin).host) return json(res, 403, { error: 'Use ' + origin });
       const url = new URL(req.url, origin);
+      if (url.pathname === '/api/media/subway-surfers' && !url.search) return await serveGameplay(req, res, root);
+      if (url.pathname.startsWith('/api/media/')) return json(res, 404, { error: 'Unknown media' });
       if (url.pathname.startsWith('/api/')) {
         if (req.method === 'GET' && url.pathname === '/api/status') return json(res, 200, controller.status());
         if (!['POST', 'PATCH', 'PUT'].includes(req.method)) return json(res, 405, { error: 'Method not allowed' });

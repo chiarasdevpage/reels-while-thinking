@@ -13,7 +13,11 @@ const work = path.join(root, 'runtime', 'dashboard-smoke');
 const store = new SettingsStore(work);
 const calls = { open: 0, close: 0, scroll: 0 };
 const config = { ...loadConfig(), platform: 'instagram', idleBehavior: 'pause', autoScrollIntervalMs: 50 };
-const controller = new Controller(config, { ensure: async () => calls.open++, close: async () => calls.close++, scroll: async () => calls.scroll++ }, () => {}, store);
+const controller = new Controller(config, {
+  ensure: async () => calls.open++, close: async () => calls.close++, scroll: async () => calls.scroll++,
+  interruptPlayback: () => {},
+  setPlayback: async playing => ({ state: calls.mediaError ? 'error' : playing ? 'playing' : 'paused', error: calls.mediaError || null }),
+}, () => {}, store);
 controller.connection(true);
 const server = createControlServer({ controller, root, shutdown: () => controller.shutdown() });
 await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -64,9 +68,23 @@ try {
   assert.equal(await evaluate("document.querySelector('select[aria-label=Platform]').value"), 'youtube');
   controller.connection(false); await until("document.body.textContent.includes('Disconnected')");
   controller.connection(true); await until("document.body.textContent.includes('Typing')");
+  await select('Platform', 'subwaySurfers');
+  assert.equal(store.load().platform, 'subwaySurfers');
+  assert.equal(await evaluate("document.querySelector('input[role=switch]') === null"), true);
+  await page.send('Page.reload'); await ready();
+  assert.equal(await evaluate("document.querySelector('select[aria-label=Platform]').value"), 'subwaySurfers');
+  await click('Open player'); assert.equal(controller.enabled, false);
+  await click('Start'); await until("document.querySelector('.badge').textContent.includes('Playing')");
+  assert.equal(controller.autoScroll, false, 'Playback is independent of the saved feed toggle');
+  calls.mediaError = 'No gameplay clip yet. Add your clip using the README setup steps.';
+  await until("document.querySelector('[role=alert]')?.textContent.includes('No gameplay clip')");
+  calls.mediaError = null;
+  await until("!document.querySelector('[role=alert]')");
+  await click('Stop'); await select('Platform', 'youtube');
+  assert.equal(await evaluate("document.querySelector('input[role=switch]').checked"), false);
   await click('Quit watcher'); await until("document.body.textContent.includes('Watcher stopped.')");
   assert.equal(controller.stopped, true);
-  console.log('PASS: React dashboard rendered; Start, Stop, both selectors, auto-scroll, Open/Login, Quit, reload, and detector connection status');
+  console.log('PASS: React dashboard controls, reload, connection status, gameplay selection/playback/errors, and return to feed');
 } finally {
   await controller.shutdown(); await viewer.close();
   server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
