@@ -1,4 +1,4 @@
-import { platforms } from './platforms.js';
+import { isGameplay, resolveTarget } from './platforms.js';
 import { validateSettings } from './settings.js';
 
 export class Controller {
@@ -7,14 +7,19 @@ export class Controller {
     this.settings = { platform: config.platform || 'instagram', idleBehavior: config.idleBehavior || (config.autoClose ? 'close' : 'pause') };
     this.count = 0; this.connected = false; this.stopped = false; this.enabled = false; this.needsOpen = false;
     this.autoScroll = true; this.queue = Promise.resolve(); this.pending = 0; this.error = null; this.generation = 0; this.closeRevision = 0;
+    this.playback = { state: 'closed', error: null };
   }
   status() {
     const eligible = this.allowed();
+    const gameplay = isGameplay(this.settings.platform);
+    const playback = gameplay ? this.viewer.playbackStatus?.() || this.playback : null;
+    const running = gameplay ? this.playbackAllowed() && playback.state === 'playing' : eligible;
     return {
       connected: this.connected, activity: !this.connected ? 'disconnected' : this.count ? 'typing' : 'idle',
-      enabled: this.enabled, automation: eligible ? 'running' : 'paused',
+      enabled: this.enabled, automation: running ? 'running' : 'paused',
       scrollingEligible: eligible, autoScroll: this.autoScroll, settings: { ...this.settings },
-      pending: this.pending > 0, error: this.error, shutdown: this.stopped,
+      playbackEligible: this.playbackAllowed(), playback,
+      pending: this.pending > 0, error: this.error || playback?.error || null, shutdown: this.stopped,
     };
   }
   enqueue(action) {
@@ -27,7 +32,9 @@ export class Controller {
   }
   background(action) { void this.enqueue(action).catch(() => {}); }
   assertLive() { if (this.stopped) throw new Error('Watcher is shutting down'); }
-  allowed() { return !this.stopped && this.enabled && this.connected && this.count > 0 && this.autoScroll; }
+  active() { return !this.stopped && this.enabled && this.connected && this.count > 0; }
+  allowed() { return !isGameplay(this.settings.platform) && this.active() && this.autoScroll; }
+  playbackAllowed() { return isGameplay(this.settings.platform) && this.active(); }
   cancelClose() { this.closeRevision++; clearTimeout(this.closeTimer); this.closeTimer = undefined; }
   connection(connected) {
     this.connected = connected;
@@ -76,6 +83,7 @@ export class Controller {
   }
   refreshScroll() {
     clearInterval(this.scrollTimer);
+    this.refreshPlayback();
     if (!this.allowed()) return;
     this.scrollTimer = setInterval(() => {
       if (this.scrolling) return;
@@ -88,6 +96,26 @@ export class Controller {
         } finally { this.scrolling = false; }
       });
     }, this.config.autoScrollIntervalMs);
+  }
+  refreshPlayback() {
+    clearInterval(this.playbackTimer);
+    if (!isGameplay(this.settings.platform)) return;
+    if (!this.playbackAllowed()) this.viewer.interruptPlayback();
+    if (this.stopped) return;
+    const synchronize = () => {
+      if (this.playbackQueued) return;
+      this.playbackQueued = true;
+      this.background(async () => {
+        try {
+          if (!isGameplay(this.settings.platform) || this.stopped) return;
+          const generation = this.generation;
+          this.playback = await this.viewer.setPlayback(this.playbackAllowed(), () => generation === this.generation && this.playbackAllowed());
+        } finally { this.playbackQueued = false; }
+      });
+    };
+    synchronize();
+    // Observe real playback/loading/errors, including reloads and manual closure.
+    this.playbackTimer = setInterval(synchronize, 500);
   }
   start() {
     this.assertLive(); this.error = null;
@@ -118,7 +146,7 @@ export class Controller {
   openManually() {
     this.assertLive(); this.error = null; this.cancelClose();
     const generation = this.generation;
-    return this.enqueue(async () => { if (generation === this.generation && !this.stopped) { this.cancelClose(); await this.viewer.ensure(); } });
+    return this.enqueue(async () => { if (generation === this.generation && !this.stopped) { this.cancelClose(); await this.viewer.ensure(); this.refreshScroll(); } });
   }
   updateSettings(patch) {
     this.assertLive(); validateSettings(patch, true);
@@ -127,14 +155,16 @@ export class Controller {
       const next = { ...this.settings, ...patch };
       const changedPlatform = next.platform !== this.settings.platform;
       if (changedPlatform && this.enabled) throw new Error('Stop automation before changing platforms');
-      if (changedPlatform) await this.viewer.close();
+      if (changedPlatform) { this.generation++; await this.viewer.close(); }
       this.settingsStore?.save(next);
       this.settings = next;
       this.config.platform = next.platform;
-      this.config.targetUrl = platforms[next.platform].url;
+      this.config.targetUrl = resolveTarget(next.platform, this.config);
       this.config.idleBehavior = next.idleBehavior;
       this.error = null;
+      this.playback = { state: 'closed', error: null };
       this.applyIdle();
+      this.refreshScroll();
     });
   }
   async shutdown() {

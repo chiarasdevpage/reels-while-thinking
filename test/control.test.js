@@ -154,7 +154,7 @@ test('API controls, payload validation, same-origin protection, static assets, a
   }
 });
 test('platform guards allow feed routes and reject login, dialogs, inputs, and offscreen video', () => {
-  for (const [platform, adapter] of Object.entries(platforms)) {
+  for (const [platform, adapter] of Object.entries(platforms).filter(([, adapter]) => adapter.supportsAutoScroll)) {
     const location = new URL(adapter.url);
     const document = {
       activeElement: null,

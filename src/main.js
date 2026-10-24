@@ -6,7 +6,7 @@ import { Viewer } from './viewer.js';
 import { Controller } from './controller.js';
 import { Detector } from './detector.js';
 import { SettingsStore } from './settings.js';
-import { platforms } from './platforms.js';
+import { resolveTarget } from './platforms.js';
 import { createControlServer } from './server.js';
 
 async function main() {
@@ -14,7 +14,7 @@ async function main() {
   const log = makeLogger(root);
   const settingsStore = new SettingsStore(root, log);
   Object.assign(config, settingsStore.load());
-  config.targetUrl = platforms[config.platform].url;
+  config.targetUrl = resolveTarget(config.platform, config);
   const viewer = new Viewer(config, root, log);
   const controller = new Controller(config, viewer, log, settingsStore);
   const detector = new Detector(config.opencode, controller, log);

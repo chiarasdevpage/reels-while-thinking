@@ -7,7 +7,7 @@ import { Viewer } from '../src/viewer.js';
 import { platforms, scrollGuard } from '../src/platforms.js';
 
 const results = [];
-for (const [platform, adapter] of Object.entries(platforms)) {
+for (const [platform, adapter] of Object.entries(platforms).filter(([, adapter]) => adapter.supportsAutoScroll)) {
   const work = path.join(root, 'runtime', 'platform-smoke', platform);
   const viewer = new Viewer({ ...loadConfig(), popouts: 1, platform, targetUrl: adapter.url }, work, () => {});
   const item = { platform, passed: false };
