@@ -67,11 +67,17 @@ locally with byte-range support, and is not copied into the frontend build. No
 video or browser account is downloaded automatically, and cloud development does
 not need access to files on your personal computer.
 
-The selected footage for this feature is
-[this Subway Surfers clip](https://www.youtube.com/watch?v=eRXE8Aebp7s).
-A YouTube watch URL is not an MP4 file; supply a playable MP4 copy of the selected
-footage at the path above. The clip is not bundled. The player reports a missing
-clip until footage is supplied.
+The development cloud environment has a supplied gameplay clip installed at that
+path: about 22 minutes of 1920×1080 H.264 footage at 60 fps. The opening logo and
+trailing menus were trimmed with stream copying, preserving video quality; the
+original upload remains in `runtime/imports/subway-surfers-original.mp4`. Sampled
+gameplay had no encoded black borders. Import details and checksums are retained
+locally in `runtime/media/import-info.json`.
+
+The clip is not bundled in Git. A fresh checkout needs its own MP4 at the path
+above; a YouTube or Drive watch URL is not a playable local file. Publish the
+prepared cloud environment to retain the imported media in its snapshot. The
+player reports a missing clip when no file has been supplied.
 
 The player uses `object-fit: cover` to avoid adding black bars and may crop the
 edges to fill your chosen window size. Bars already encoded in the source video
@@ -176,6 +182,18 @@ range streaming, and control proxy. It needs the production build and a configur
 Chromium browser, but no download, FFmpeg installation, or production gameplay
 file. Evidence is saved under `runtime/gameplay-smoke/`. Verify the supplied
 gameplay clip separately after importing it.
+
+To run the same checks against the installed footage:
+
+```bash
+npm run test:gameplay -- --media runtime/media/subway-surfers.mp4
+```
+
+This copies the supplied clip into the isolated smoke-test directory; it does not
+overwrite the original. The test seeks near the end to verify looping and checks
+decoded playback at 10%, 50%, and 90% of long clips. Results identify generated
+versus supplied media in `runtime/gameplay-smoke/result.json`. Each run removes
+the previous result before starting, so a failed run cannot leave a stale pass.
 
 Optional existing checks: `node test/opencode-smoke.js` uses an isolated OpenCode/Ollama session; `node test/instagram-smoke.js` checks public Reels. In WSL, run `python3 /mnt/c/Users/super/projects/reels-while-thinking/test/wsl-launcher-test.py` for wrapper regression coverage.
 

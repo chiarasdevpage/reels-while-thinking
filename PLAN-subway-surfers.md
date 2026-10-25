@@ -1,16 +1,20 @@
 # Subway Surfers gameplay mode
 
-Status: implemented and validated with generated media. Import and border trimming
-of the selected footage remain blocked on cloud network access to YouTube.
-
-Selected clip: https://www.youtube.com/watch?v=eRXE8Aebp7s. Prefer no black borders;
-the player fills its window without stretching, and any encoded bars need a
-measured crop when the footage can be fetched.
+Status: implemented and validated with both generated media and supplied gameplay.
+The supplied MP4 is installed in the cloud at `runtime/media/subway-surfers.mp4`.
+The prepared loop runs 22m11s at 1920×1080/60 fps, with the opening logo and trailing
+menus removed by stream copying. The original upload is preserved under
+`runtime/imports/`. Sampled gameplay has no encoded black borders; the player
+fills its window without stretching. Media remains outside Git and needs the
+prepared environment snapshot to persist between cloud tasks.
 
 Implementation validation: 38 unit/API tests passed, both frontend entries built,
 and dashboard, three-viewer feed, and two-viewer gameplay smoke tests passed in
 headless Chromium. The gameplay smoke also verified the Vite media/control proxy.
-Native Windows/WSL playback and the actual selected clip have not been validated.
+The imported clip passed the same playback/control checks plus seeking and decoding
+at 10%, 50%, and 90%; the test seeks near the end to verify the actual loop. Local
+evidence is in `runtime/gameplay-smoke/` and `runtime/media/import-info.json`.
+Native Windows/WSL playback remains a separate manual check.
 
 ## Goal and working assumptions
 
@@ -75,9 +79,10 @@ established; do not add unconditional video autoplay on page load.
   `runtime/media/subway-surfers.mp4` in the environment running the app. Keep large
   media in the existing ignored `runtime/` directory. Document the preferred
   browser-compatible video format and how to supply or replace the clip.
-- The actual gameplay clip is still needed. Select user-provided footage or a
-  source permitted for this use before declaring the feature complete. Automated
-  tests can use a small generated video fixture while the real clip is pending.
+- The supplied gameplay clip is installed and tested in the cloud. Keep the small
+  generated fixture for repeatable tests without a download; use
+  `npm run test:gameplay -- --media runtime/media/subway-surfers.mp4` to validate
+  installed or replacement footage separately.
 - Add a fixed `GET`/`HEAD /api/media/subway-surfers` route before generic JSON API
   dispatch. Stream only this known file, with `video/mp4`, content length, and
   single byte-range support (`206`, `Content-Range`, and `416` as appropriate).
